@@ -13,6 +13,7 @@ app.get('/', (req, res) => {
   res.json({ status: 'DJ Shark Attack server is running!' });
 });
 
+// Convert plain text to base64 PDF
 function textToPdfBase64(text) {
   const lines = text.split('\n');
   const pageHeight = 792;
@@ -21,22 +22,23 @@ function textToPdfBase64(text) {
   const lineHeight = 13;
   const fontSize = 9;
   const linesPerPage = Math.floor((pageHeight - margin * 2) / lineHeight);
+
   const pdfLines = [];
   for (const line of lines) {
     if (line.length === 0) { pdfLines.push(''); continue; }
     for (let i = 0; i < line.length; i += 95) pdfLines.push(line.slice(i, i + 95));
   }
+
   const pages = [];
   for (let i = 0; i < pdfLines.length; i += linesPerPage) pages.push(pdfLines.slice(i, i + linesPerPage));
   if (pages.length === 0) pages.push(['']);
 
   let objId = 1;
   const objs = {};
-  const addObj = (content) => { objs[objId] = content; return objId++; };
-
   const catalogId = objId++;
   const pagesId = objId++;
-  const fontId = addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  objs[objId] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  const fontId = objId++;
 
   const pageIds = [];
   for (const pageLines of pages) {
@@ -44,16 +46,18 @@ function textToPdfBase64(text) {
     let s = `BT\n/F1 ${fontSize} Tf\n${margin} ${pageHeight - margin} Td\n${lineHeight} TL\n`;
     for (const l of esc) s += `(${l}) Tj T*\n`;
     s += 'ET';
-    const cid = addObj(`<< /Length ${s.length} >>\nstream\n${s}\nendstream`);
-    const pid = addObj(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${cid} 0 R /Resources << /Font << /F1 ${fontId} 0 R >> >> >>`);
-    pageIds.push(pid);
+    objs[objId] = `<< /Length ${s.length} >>\nstream\n${s}\nendstream`;
+    const cid = objId++;
+    objs[objId] = `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${cid} 0 R /Resources << /Font << /F1 ${fontId} 0 R >> >> >>`;
+    pageIds.push(objId++);
   }
+
   objs[catalogId] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
   objs[pagesId] = `<< /Type /Pages /Kids [${pageIds.map(i=>`${i} 0 R`).join(' ')}] /Count ${pageIds.length} >>`;
 
+  const maxId = objId - 1;
   let pdf = '%PDF-1.4\n';
   const offsets = {};
-  const maxId = objId - 1;
   for (let i = 1; i <= maxId; i++) {
     offsets[i] = pdf.length;
     pdf += `${i} 0 obj\n${objs[i]}\nendobj\n`;
@@ -65,11 +69,16 @@ function textToPdfBase64(text) {
   return Buffer.from(pdf).toString('base64');
 }
 
+// Send contract via Firma
 app.post('/send-contract', async (req, res) => {
   try {
     const { clientName, pocName, pocEmail, contractText, emailMessage } = req.body;
     if (!pocEmail) return res.status(400).json({ error: 'Missing pocEmail' });
     if (!contractText) return res.status(400).json({ error: 'Missing contractText' });
+
+    const nameParts = (pocName || clientName || 'Client Signer').split(' ');
+    const firstName = nameParts[0] || 'Client';
+    const lastName = nameParts.slice(1).join(' ') || 'Signer';
 
     const pdfBase64 = textToPdfBase64(contractText);
 
@@ -78,14 +87,27 @@ app.post('/send-contract', async (req, res) => {
       document: pdfBase64,
       recipients: [{
         id: 'temp_1',
-        first_name: (pocName || clientName).split(' ')[0] || 'Client',
-        last_name: (pocName || clientName).split(' ').slice(1).join(' ') || 'Signer',
+        first_name: firstName,
+        last_name: lastName,
         email: pocEmail,
         role: 'signer'
       }],
-      fields: [{ recipient_id: 'temp_1', type: 'signature', page: 1, x: 100, y: 650, width: 200, height: 50 }],
-      settings: { send_signing_email: true, send_finish_email: true }
+      fields: [{
+        recipient_id: 'temp_1',
+        type: 'signature',
+        page_number: 1,
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 50
+      }],
+      settings: {
+        send_signing_email: true,
+        send_finish_email: true,
+        allow_editing_before_sending: false
+      }
     };
+
     if (emailMessage) createBody.description = emailMessage;
 
     const createRes = await fetch('https://api.firma.dev/functions/v1/signing-request-api/signing-requests', {
@@ -93,25 +115,30 @@ app.post('/send-contract', async (req, res) => {
       headers: { 'Authorization': FIRMA_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(createBody)
     });
+
     const createData = await createRes.json();
     console.log('Firma create:', JSON.stringify(createData));
     if (!createRes.ok) return res.status(400).json({ error: 'Firma create error', detail: createData });
 
+    // Send it
     const sendRes = await fetch(`https://api.firma.dev/functions/v1/signing-request-api/signing-requests/${createData.id}/send`, {
       method: 'POST',
       headers: { 'Authorization': FIRMA_KEY, 'Content-Type': 'application/json' }
     });
+
     const sendData = await sendRes.json();
     console.log('Firma send:', JSON.stringify(sendData));
     if (!sendRes.ok) return res.status(400).json({ error: 'Firma send error', detail: sendData });
 
     res.json({ success: true, id: createData.id });
+
   } catch (e) {
     console.error('send-contract error:', e);
     res.status(500).json({ error: e.message });
   }
 });
 
+// Log to Monday
 app.post('/log-monday', async (req, res) => {
   try {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
