@@ -94,8 +94,10 @@ app.post('/send-contract', async (req, res) => {
         recipient_id: 'temp_1',
         type: 'signature',
         page_number: 1,
-        position: { x: 15, y: 85 },
-        size: { width: 35, height: 8 }
+        x: 15,
+        y: 85,
+        width: 35,
+        height: 8
       }],
       settings: {
         send_signing_email: true,
@@ -151,7 +153,7 @@ app.post('/log-monday', async (req, res) => {
     if (contactInfo) colObj['text_1'] = contactInfo.split(' | ')[1] || contactInfo;
     if (phone) colObj['text'] = phone;
     if (fee) colObj['payment_method'] = String(fee);
-    colObj['status_1'] = { label: 'Contract Sent' };
+    colObj['status_1'] = { label: 'Send' };
 
     const colVals = JSON.stringify(colObj);
     console.log('Monday column values:', colVals);
