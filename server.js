@@ -143,14 +143,14 @@ app.post('/log-monday', async (req, res) => {
   try {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
     const colVals = JSON.stringify({
-      'event_date__1': { date: eventDate || '' },
-      'services__1': services || '',
-      'event_location__1': venue || '',
-      'contact_info__1': contactInfo || '',
-      'bride_groom_cell___1': phone || '',
-      'amount_due__1': fee || '',
-      'deposit__1': deposit || '',
-      'contract__1': { label: 'Contract Sent' }
+      'date': { date: eventDate || '' },
+      'dropdown': { labels: [services || ''] },
+      'event_location': venue || '',
+      'text_1': contactInfo || '',
+      'text': phone || '',
+      'payment_method': fee ? { value: parseFloat(fee) } : {},
+      'status6': { label: deposit ? 'Deposit Received' : '' },
+      'status_1': { label: 'Contract Sent' }
     });
     const mutation = `mutation { create_item(board_id: ${boardId}, item_name: "${itemName.replace(/"/g,'')}", column_values: ${JSON.stringify(colVals)}) { id } }`;
     const monRes = await fetch('https://api.monday.com/v2', {
