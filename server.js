@@ -90,19 +90,9 @@ app.post('/send-contract', async (req, res) => {
         email: pocEmail,
         role: 'signer'
       }],
-      fields: [{
-        recipient_id: 'temp_1',
-        type: 'signature',
-        page_number: 1,
-        x: 15,
-        y: 85,
-        width: 35,
-        height: 8
-      }],
       settings: {
         send_signing_email: true,
-        send_finish_email: true,
-        allow_editing_before_sending: false
+        send_finish_email: true
       }
     };
 
@@ -149,10 +139,11 @@ app.post('/log-monday', async (req, res) => {
     const colObj = {};
     if (eventDate) colObj['date'] = { date: eventDate };
     if (mondayService) colObj['dropdown'] = { labels: [mondayService] };
-    if (venue) colObj['event_location'] = venue;
+    if (venue) colObj['event_location'] = { text: venue };
     if (contactInfo) colObj['text_1'] = contactInfo.split(' | ')[1] || contactInfo;
     if (phone) colObj['text'] = phone;
-    if (fee) colObj['payment_method'] = String(fee);
+    if (fee) colObj['payment_method'] = { text: '$' + fee + ' DUE' };
+    colObj['status6'] = { label: 'Not Received' };
     colObj['status_1'] = { label: 'Send' };
 
     const colVals = JSON.stringify(colObj);
