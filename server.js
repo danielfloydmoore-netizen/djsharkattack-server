@@ -94,8 +94,8 @@ app.post('/send-contract', async (req, res) => {
         recipient_id: 'temp_1',
         type: 'signature',
         page_number: 1,
-        position: { x: 15, y: 88 },
-        size: { width: 30, height: 5 }
+        position: { x: 15, y: 85 },
+        size: { width: 35, height: 8 }
       }],
       settings: {
         send_signing_email: true,
@@ -137,7 +137,6 @@ app.post('/log-monday', async (req, res) => {
   try {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
 
-    // Map services to Monday dropdown labels
     const servicesMap = {
       'Ceremony and reception': 'Ceremony',
       'Reception only': 'Reception',
@@ -149,7 +148,7 @@ app.post('/log-monday', async (req, res) => {
     if (eventDate) colObj['date'] = { date: eventDate };
     if (mondayService) colObj['dropdown'] = { labels: [mondayService] };
     if (venue) colObj['event_location'] = venue;
-    if (contactInfo) colObj['text_1'] = contactInfo;
+    if (contactInfo) colObj['text_1'] = contactInfo.split(' | ')[1] || contactInfo;
     if (phone) colObj['text'] = phone;
     if (fee) colObj['payment_method'] = String(fee);
     colObj['status_1'] = { label: 'Contract Sent' };
