@@ -13,7 +13,6 @@ app.get('/', (req, res) => {
   res.json({ status: 'DJ Shark Attack server is running!' });
 });
 
-// Convert plain text to base64 PDF
 function textToPdfBase64(text) {
   const lines = text.split('\n');
   const pageHeight = 792;
@@ -69,7 +68,6 @@ function textToPdfBase64(text) {
   return Buffer.from(pdf).toString('base64');
 }
 
-// Send contract via Firma
 app.post('/send-contract', async (req, res) => {
   try {
     const { clientName, pocName, pocEmail, contractText, emailMessage } = req.body;
@@ -96,10 +94,10 @@ app.post('/send-contract', async (req, res) => {
         recipient_id: 'temp_1',
         type: 'signature',
         page_number: 1,
-        x: 100,
-        y: 100,
-        width: 200,
-        height: 50
+        x: 15,
+        y: 88,
+        width: 30,
+        height: 5
       }],
       settings: {
         send_signing_email: true,
@@ -120,7 +118,6 @@ app.post('/send-contract', async (req, res) => {
     console.log('Firma create:', JSON.stringify(createData));
     if (!createRes.ok) return res.status(400).json({ error: 'Firma create error', detail: createData });
 
-    // Send it
     const sendRes = await fetch(`https://api.firma.dev/functions/v1/signing-request-api/signing-requests/${createData.id}/send`, {
       method: 'POST',
       headers: { 'Authorization': FIRMA_KEY, 'Content-Type': 'application/json' }
@@ -138,29 +135,50 @@ app.post('/send-contract', async (req, res) => {
   }
 });
 
-// Log to Monday
 app.post('/log-monday', async (req, res) => {
   try {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
-    const colVals = JSON.stringify({
-      'date': { date: eventDate || '' },
-      'dropdown': { labels: [services || ''] },
-      'event_location': venue || '',
-      'text_1': contactInfo || '',
-      'text': phone || '',
-      'payment_method': fee ? { value: parseFloat(fee) } : {},
-      'status6': { label: deposit ? 'Deposit Received' : '' },
-      'status_1': { label: 'Contract Sent' }
-    });
-    const mutation = `mutation { create_item(board_id: ${boardId}, item_name: "${itemName.replace(/"/g,'')}", column_values: ${JSON.stringify(colVals)}) { id } }`;
+
+    // Build column values using real column IDs from the board
+    const colObj = {};
+
+    if (eventDate) colObj['date'] = { date: eventDate };
+    if (services) colObj['dropdown'] = { labels: [services] };
+    if (venue) colObj['event_location'] = venue;
+    if (contactInfo) colObj['text_1'] = contactInfo;
+    if (phone) colObj['text'] = phone;
+    if (fee) colObj['payment_method'] = String(fee);
+    colObj['status_1'] = { label: 'Contract Sent' };
+
+    const colVals = JSON.stringify(colObj);
+    console.log('Monday column values:', colVals);
+
+    const mutation = `mutation {
+      create_item(
+        board_id: ${boardId},
+        item_name: "${itemName.replace(/"/g,'').replace(/\n/g,' ')}",
+        column_values: ${JSON.stringify(colVals)}
+      ) { id }
+    }`;
+
     const monRes = await fetch('https://api.monday.com/v2', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': MONDAY_TOKEN, 'API-Version': '2024-01' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': MONDAY_TOKEN,
+        'API-Version': '2024-01'
+      },
       body: JSON.stringify({ query: mutation })
     });
+
     const monData = await monRes.json();
-    if (monData.data && monData.data.create_item) res.json({ success: true, id: monData.data.create_item.id });
-    else res.status(400).json({ error: 'Monday error', detail: monData });
+    console.log('Monday response:', JSON.stringify(monData));
+
+    if (monData.data && monData.data.create_item) {
+      res.json({ success: true, id: monData.data.create_item.id });
+    } else {
+      res.status(400).json({ error: 'Monday error', detail: monData });
+    }
   } catch (e) {
     console.error('log-monday error:', e);
     res.status(500).json({ error: e.message });
