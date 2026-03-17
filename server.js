@@ -94,10 +94,8 @@ app.post('/send-contract', async (req, res) => {
         recipient_id: 'temp_1',
         type: 'signature',
         page_number: 1,
-        x: 15,
-        y: 88,
-        width: 30,
-        height: 5
+        position: { x: 15, y: 88 },
+        size: { width: 30, height: 5 }
       }],
       settings: {
         send_signing_email: true,
@@ -139,11 +137,17 @@ app.post('/log-monday', async (req, res) => {
   try {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
 
-    // Build column values using real column IDs from the board
-    const colObj = {};
+    // Map services to Monday dropdown labels
+    const servicesMap = {
+      'Ceremony and reception': 'Ceremony',
+      'Reception only': 'Reception',
+      'Hourly': 'Hourly'
+    };
+    const mondayService = servicesMap[services] || services;
 
+    const colObj = {};
     if (eventDate) colObj['date'] = { date: eventDate };
-    if (services) colObj['dropdown'] = { labels: [services] };
+    if (mondayService) colObj['dropdown'] = { labels: [mondayService] };
     if (venue) colObj['event_location'] = venue;
     if (contactInfo) colObj['text_1'] = contactInfo;
     if (phone) colObj['text'] = phone;
