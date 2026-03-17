@@ -130,18 +130,26 @@ app.post('/log-monday', async (req, res) => {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
 
     const servicesMap = {
-      'Ceremony and reception': 'Ceremony',
-      'Reception only': 'Reception',
-      'Hourly': 'Hourly'
+      'Ceremony and reception': ['Ceremony', 'Reception'],
+      'Reception only': ['Reception'],
+      'Hourly': ['Hourly']
     };
-    const mondayService = servicesMap[services] || services;
+    const mondayServices = servicesMap[services] || [services];
 
     const colObj = {};
     if (eventDate) colObj['date'] = { date: eventDate };
-    if (mondayService) colObj['dropdown'] = { labels: [mondayService] };
+    if (mondayServices.length) colObj['dropdown'] = { labels: mondayServices };
     if (venue) colObj['event_location'] = venue;
-    if (contactInfo) colObj['text_1'] = contactInfo.split(' | ')[1] || contactInfo;
-    if (phone) colObj['text'] = phone;
+    if (contactInfo) {
+      const parts = contactInfo.split(' | ');
+      const pocName = parts[0] || '';
+      const pocEmail = parts[1] || contactInfo;
+      colObj['text_1'] = pocEmail;
+      colObj['text'] = pocName + (phone ? ' - ' + phone : '');
+    }
+    if (fee) colObj['payment_method'] = '$' + fee + ' DUE';
+    colObj['status'] = { label: 'Done' };
+    colObj['status_2'] = { label: 'Done' };
     colObj['status6'] = { label: 'Not Received' };
     colObj['status_1'] = { label: 'Send' };
 
@@ -151,7 +159,7 @@ app.post('/log-monday', async (req, res) => {
     const mutation = `mutation {
       create_item(
         board_id: ${boardId},
-        item_name: "${itemName.replace(/"/g,'').replace(/\n/g,' ')}",
+        item_name: "${itemName.replace(/"/g,'').replace(/\n/g,' ').replace(/ - \d{2}\/\d{2}\/\d{4}/,'')}",
         column_values: ${JSON.stringify(colVals)}
       ) { id }
     }`;
