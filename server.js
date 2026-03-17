@@ -19,13 +19,8 @@ app.post('/send-contract', async (req, res) => {
   try {
     const { clientName, pocName, pocEmail, contractText, emailMessage } = req.body;
 
-    // Step 1 — get workspace ID
-    const wsRes = await fetch('https://api.firma.dev/functions/v1/signing-request-api/workspaces', {
-      headers: { 'Authorization': FIRMA_KEY }
-    });
-    const wsData = await wsRes.json();
-    const workspaceId = wsData.items && wsData.items[0] && wsData.items[0].id;
-    if (!workspaceId) return res.status(400).json({ error: 'Could not get Firma workspace', detail: wsData });
+    // Hardcoded workspace ID
+    const workspaceId = '4f61bc62-4ee8-43bc-9e34-d6e438a9800a';
 
     // Step 2 — create signing request with PDF
     const base64Doc = Buffer.from(contractText).toString('base64');
