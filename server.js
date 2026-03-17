@@ -139,10 +139,9 @@ app.post('/log-monday', async (req, res) => {
     const colObj = {};
     if (eventDate) colObj['date'] = { date: eventDate };
     if (mondayService) colObj['dropdown'] = { labels: [mondayService] };
-    if (venue) colObj['event_location'] = { text: venue };
+    if (venue) colObj['event_location'] = venue;
     if (contactInfo) colObj['text_1'] = contactInfo.split(' | ')[1] || contactInfo;
     if (phone) colObj['text'] = phone;
-    if (fee) colObj['payment_method'] = { text: '$' + fee + ' DUE' };
     colObj['status6'] = { label: 'Not Received' };
     colObj['status_1'] = { label: 'Send' };
 
