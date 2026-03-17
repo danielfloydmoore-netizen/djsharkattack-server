@@ -76,7 +76,13 @@ app.post('/send-contract', async (req, res) => {
     const createBody = {
       name: 'DJ Shark Attack Contract - ' + clientName,
       document: pdfBase64,
-      recipients: [{ id: 'temp_1', name: pocName || clientName, email: pocEmail, role: 'signer' }],
+      recipients: [{
+        id: 'temp_1',
+        first_name: (pocName || clientName).split(' ')[0] || 'Client',
+        last_name: (pocName || clientName).split(' ').slice(1).join(' ') || 'Signer',
+        email: pocEmail,
+        role: 'signer'
+      }],
       fields: [{ recipient_id: 'temp_1', type: 'signature', page: 1, x: 100, y: 650, width: 200, height: 50 }],
       settings: { send_signing_email: true, send_finish_email: true }
     };
