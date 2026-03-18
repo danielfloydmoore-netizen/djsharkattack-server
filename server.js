@@ -78,7 +78,29 @@ app.post('/send-contract', async (req, res) => {
     const firstName = nameParts[0] || 'Client';
     const lastName = nameParts.slice(1).join(' ') || 'Signer';
 
-    const pdfBase64 = textToPdfBase64(contractText);
+    // Pre-fill DJ rep info, signatures and dates
+    const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    
+    let filledContract = contractText;
+    
+    // Fill DJ rep name
+    filledContract = filledContract.replace(
+      'DJ Shark Attack LLC Representative: _______________',
+      'DJ Shark Attack LLC Representative: Daniel Moore'
+    );
+    
+    // Fill DJ rep signature
+    filledContract = filledContract.replace(
+      /DJ Shark Attack LLC Representative: Daniel Moore\nSignature: _+/,
+      'DJ Shark Attack LLC Representative: Daniel Moore\nSignature: /s/ Daniel Moore'
+    );
+    
+    // Fill ALL date lines with today's date
+    filledContract = filledContract.replace(/Date: _+/g, 'Date: ' + today);
+
+    const contractWithTags = filledContract;
+
+    const pdfBase64 = textToPdfBase64(contractWithTags);
 
     const createBody = {
       name: 'DJ Shark Attack Contract - ' + clientName,
