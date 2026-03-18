@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -8,6 +9,13 @@ app.use(express.json({ limit: '10mb' }));
 
 const FIRMA_KEY = 'firma_7568f96c93fb42f1811abc08153302456388faa366a5f44d';
 const MONDAY_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjYzNDI5OTgzNSwiYWFpIjoxMSwidWlkIjoyOTM2NzEyNiwiaWFkIjoiMjAyNi0wMy0xN1QxNzowOTo1Ny45NjRaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTE3Mjk2MzMsInJnbiI6InVzZTEifQ.oPYF0k3V2mlZ8MC7iVt2bh2kLkus8cFmfUSh33UnNvw';
+const YAHOO_EMAIL = 'djsharkattack@yahoo.com';
+const YAHOO_PASS = 'cihokezbcxhsvndl';
+
+const mailer = nodemailer.createTransport({
+  service: 'yahoo',
+  auth: { user: YAHOO_EMAIL, pass: YAHOO_PASS }
+});
 
 app.get('/', (req, res) => {
   res.json({ status: 'DJ Shark Attack server is running!' });
@@ -114,7 +122,8 @@ app.post('/send-contract', async (req, res) => {
       }],
       settings: {
         send_signing_email: true,
-        send_finish_email: true
+        send_finish_email: true,
+        allow_editing_before_sending: true
       }
     };
 
@@ -138,6 +147,20 @@ app.post('/send-contract', async (req, res) => {
     const sendData = await sendRes.json();
     console.log('Firma send:', JSON.stringify(sendData));
     if (!sendRes.ok) return res.status(400).json({ error: 'Firma send error', detail: sendData });
+
+    // Send custom email from Yahoo with Venmo/deposit info
+    try {
+      await mailer.sendMail({
+        from: '"DJ Shark Attack LLC" <djsharkattack@yahoo.com>',
+        to: pocEmail,
+        subject: `DJ Shark Attack Service Contract - ${clientName}`,
+        text: emailMessage
+      });
+      console.log('Yahoo email sent to', pocEmail);
+    } catch (mailErr) {
+      console.error('Yahoo email error:', mailErr.message);
+      // Don't fail the whole request if email fails
+    }
 
     res.json({ success: true, id: createData.id });
 
