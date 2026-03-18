@@ -139,7 +139,7 @@ app.post('/log-monday', async (req, res) => {
     const colObj = {};
     if (eventDate) colObj['date'] = { date: eventDate };
     if (mondayServices.length) colObj['dropdown'] = { labels: mondayServices };
-    if (venue) colObj['event_location'] = venue;
+    if (venue) colObj['text_mm1hgkk7'] = venue;
     if (contactInfo) {
       const parts = contactInfo.split(' | ');
       const pocName = parts[0] || '';
