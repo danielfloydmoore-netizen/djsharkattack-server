@@ -13,7 +13,9 @@ const YAHOO_EMAIL = 'djsharkattack@yahoo.com';
 const YAHOO_PASS = 'cihokezbcxhsvndl';
 
 const mailer = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: { user: 'danielfloydmoore@gmail.com', pass: 'cwuozckdwvmeyvlz' }
 });
 
@@ -94,18 +96,22 @@ app.post('/send-contract', async (req, res) => {
     const pdfBase64 = textToPdfBase64(filled);
     const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
-    await mailer.sendMail({
-      from: '"DJ Shark Attack LLC" <danielfloydmoore@gmail.com>',
-      to: pocEmail,
-      replyTo: 'djsharkattack@yahoo.com',
-      subject: `DJ Shark Attack Service Contract - ${clientName}`,
-      text: emailMessage,
-      attachments: [{
-        filename: `DJ_Shark_Attack_Contract_${clientName.replace(/[^a-z0-9]/gi,'_')}.pdf`,
-        content: pdfBuffer,
-        contentType: 'application/pdf'
-      }]
-    });
+    console.log('Sending email to', pocEmail);
+    await Promise.race([
+      mailer.sendMail({
+        from: '"DJ Shark Attack LLC" <danielfloydmoore@gmail.com>',
+        to: pocEmail,
+        replyTo: 'djsharkattack@yahoo.com',
+        subject: `DJ Shark Attack Service Contract - ${clientName}`,
+        text: emailMessage,
+        attachments: [{
+          filename: `DJ_Shark_Attack_Contract_${clientName.replace(/[^a-z0-9]/gi,'_')}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }]
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Gmail timeout after 20s')), 20000))
+    ]);
 
     console.log('Email sent to', pocEmail);
     res.json({ success: true });
