@@ -99,19 +99,19 @@ app.post('/send-contract', async (req, res) => {
         order: 1
       }],
       prefilled_fields: [
-        { label: 'client_name', value: clientName || '' },
-        { label: 'agreement_date', value: agDate || today },
-        { label: 'performance_date', value: perfDate || '' },
-        { label: 'start_time', value: startTime || '' },
-        { label: 'end_time', value: endTime || '' },
-        { label: 'venue', value: venue || '' },
-        { label: 'total_fee', value: fee ? '$' + fee : '' },
-        { label: 'deposit', value: dep },
-        { label: 'services', value: services || '' },
-        { label: 'rep_name', value: 'Daniel Moore' },
-        { label: 'rep_signature', value: '/s/ Daniel Moore' },
-        { label: 'client_date', value: today },
-        { label: 'rep_date', value: today }
+        { variable_name: 'client_name', value: clientName || '' },
+        { variable_name: 'agreement_date', value: agDate || today },
+        { variable_name: 'performance_date', value: perfDate || '' },
+        { variable_name: 'start_time', value: startTime || '' },
+        { variable_name: 'end_time', value: endTime || '' },
+        { variable_name: 'venue', value: venue || '' },
+        { variable_name: 'total_fee', value: fee ? '$' + fee : '' },
+        { variable_name: 'deposit', value: dep },
+        { variable_name: 'services', value: services || '' },
+        { variable_name: 'rep_name', value: 'Daniel Moore' },
+        { variable_name: 'rep_signature', value: '/s/ Daniel Moore' },
+        { variable_name: 'client_date', value: today },
+        { variable_name: 'rep_date', value: today }
       ],
       settings: {
         send_signing_email: true,
@@ -141,18 +141,20 @@ app.post('/send-contract', async (req, res) => {
     console.log('Firma send:', JSON.stringify(sendData));
     if (!sendRes.ok) return res.status(400).json({ error: 'Firma send error', detail: sendData });
 
-    // Send custom email from Yahoo with Venmo/deposit info
+    // Send custom email from Yahoo with timeout
     try {
-      await mailer.sendMail({
-        from: '"DJ Shark Attack LLC" <djsharkattack@yahoo.com>',
-        to: pocEmail,
-        subject: `DJ Shark Attack Service Contract - ${clientName}`,
-        text: emailMessage
-      });
+      await Promise.race([
+        mailer.sendMail({
+          from: '"DJ Shark Attack LLC" <djsharkattack@yahoo.com>',
+          to: pocEmail,
+          subject: `DJ Shark Attack Service Contract - ${clientName}`,
+          text: emailMessage
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+      ]);
       console.log('Yahoo email sent to', pocEmail);
     } catch (mailErr) {
       console.error('Yahoo email error:', mailErr.message);
-      // Don't fail the whole request if email fails
     }
 
     res.json({ success: true, id: createData.id });
