@@ -92,11 +92,11 @@ app.post('/send-contract', async (req, res) => {
       name: 'DJ Shark Attack Contract - ' + clientName,
       template_id: '7fdb041d-f7f0-4fd8-b0df-84632b22e551',
       recipients: [{
-        id: 'temp_1',
         first_name: firstName,
         last_name: lastName,
         email: pocEmail,
-        role: 'signer'
+        designation: 'Signer',
+        order: 1
       }],
       prefilled_fields: [
         { label: 'client_name', value: clientName || '' },
