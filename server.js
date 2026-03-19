@@ -116,12 +116,6 @@ app.post('/send-contract', async (req, res) => {
   }
 });
 
-  } catch (e) {
-    console.error('send-contract error:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
 app.post('/log-monday', async (req, res) => {
   try {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
