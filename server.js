@@ -13,8 +13,8 @@ const YAHOO_EMAIL = 'djsharkattack@yahoo.com';
 const YAHOO_PASS = 'cihokezbcxhsvndl';
 
 const mailer = nodemailer.createTransport({
-  service: 'yahoo',
-  auth: { user: YAHOO_EMAIL, pass: YAHOO_PASS }
+  service: 'gmail',
+  auth: { user: 'danielfloydmoore@gmail.com', pass: 'cwuozckdwvmeyvlz' }
 });
 
 app.get('/', (req, res) => {
@@ -80,84 +80,41 @@ app.post('/send-contract', async (req, res) => {
   try {
     const { clientName, pocName, pocEmail, contractText, emailMessage, perfDate, agDate, startTime, endTime, venue, fee, services } = req.body;
     if (!pocEmail) return res.status(400).json({ error: 'Missing pocEmail' });
-
-    const nameParts = (pocName || clientName || 'Client Signer').split(' ');
-    const firstName = nameParts[0] || 'Client';
-    const lastName = nameParts.slice(1).join(' ') || 'Signer';
+    if (!contractText) return res.status(400).json({ error: 'Missing contractText' });
 
     const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     const dep = fee ? '$' + (parseFloat(fee) * 0.5).toFixed(2) : '';
 
-    const createBody = {
-      name: 'DJ Shark Attack Contract - ' + clientName,
-      template_id: '7fdb041d-f7f0-4fd8-b0df-84632b22e551',
-      recipients: [{
-        first_name: firstName,
-        last_name: lastName,
-        email: pocEmail,
-        designation: 'Signer',
-        order: 1
-      }],
-      prefilled_fields: [
-        { variable_name: 'client_name', value: clientName || '' },
-        { variable_name: 'agreement_date', value: agDate || today },
-        { variable_name: 'performance_date', value: perfDate || '' },
-        { variable_name: 'start_time', value: startTime || '' },
-        { variable_name: 'end_time', value: endTime || '' },
-        { variable_name: 'venue', value: venue || '' },
-        { variable_name: 'total_fee', value: fee ? '$' + fee : '' },
-        { variable_name: 'deposit', value: dep },
-        { variable_name: 'services', value: services || '' },
-        { variable_name: 'rep_name', value: 'Daniel Moore' },
-        { variable_name: 'rep_signature', value: '/s/ Daniel Moore' },
-        { variable_name: 'client_date', value: today },
-        { variable_name: 'rep_date', value: today }
-      ],
-      settings: {
-        send_signing_email: true,
-        send_finish_email: true,
-        allow_editing_before_sending: false
-      }
-    };
+    // Pre-fill contract
+    let filled = contractText;
+    filled = filled.replace('DJ Shark Attack LLC Representative: _______________', 'DJ Shark Attack LLC Representative: Daniel Moore');
+    filled = filled.replace(/DJ Shark Attack LLC Representative: Daniel Moore\nSignature: _+/, 'DJ Shark Attack LLC Representative: Daniel Moore\nSignature: /s/ Daniel Moore');
+    filled = filled.replace(/Date: _+/g, 'Date: ' + today);
 
-    if (emailMessage) createBody.email_message = emailMessage;
+    const pdfBase64 = textToPdfBase64(filled);
+    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
-    const createRes = await fetch('https://api.firma.dev/functions/v1/signing-request-api/signing-requests', {
-      method: 'POST',
-      headers: { 'Authorization': FIRMA_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(createBody)
+    await mailer.sendMail({
+      from: '"DJ Shark Attack LLC" <danielfloydmoore@gmail.com>',
+      to: pocEmail,
+      replyTo: 'djsharkattack@yahoo.com',
+      subject: `DJ Shark Attack Service Contract - ${clientName}`,
+      text: emailMessage,
+      attachments: [{
+        filename: `DJ_Shark_Attack_Contract_${clientName.replace(/[^a-z0-9]/gi,'_')}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf'
+      }]
     });
 
-    const createData = await createRes.json();
-    console.log('Firma create:', JSON.stringify(createData));
-    if (!createRes.ok) return res.status(400).json({ error: 'Firma create error', detail: createData });
+    console.log('Email sent to', pocEmail);
+    res.json({ success: true });
 
-    const sendRes = await fetch(`https://api.firma.dev/functions/v1/signing-request-api/signing-requests/${createData.id}/send`, {
-      method: 'POST',
-      headers: { 'Authorization': FIRMA_KEY, 'Content-Type': 'application/json' }
-    });
-
-    const sendData = await sendRes.json();
-    console.log('Firma send:', JSON.stringify(sendData));
-    if (!sendRes.ok) return res.status(400).json({ error: 'Firma send error', detail: sendData });
-
-    // Send Yahoo email with timeout
-    try {
-      await Promise.race([
-        mailer.sendMail({
-          from: '"DJ Shark Attack LLC" <djsharkattack@yahoo.com>',
-          to: pocEmail,
-          subject: `DJ Shark Attack Service Contract - ${clientName}`,
-          text: emailMessage
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-      ]);
-      console.log('Yahoo email sent to', pocEmail);
-    } catch (mailErr) {
-      console.error('Yahoo email error:', mailErr.message);
-    }
-
-    res.json({ success: true, id: createData.id });
+  } catch (e) {
+    console.error('send-contract error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
   } catch (e) {
     console.error('send-contract error:', e);
