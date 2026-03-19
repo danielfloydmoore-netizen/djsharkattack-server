@@ -78,41 +78,19 @@ function textToPdfBase64(text) {
 
 app.post('/send-contract', async (req, res) => {
   try {
-    const { clientName, pocName, pocEmail, contractText, emailMessage } = req.body;
+    const { clientName, pocName, pocEmail, contractText, emailMessage, perfDate, agDate, startTime, endTime, venue, fee, services } = req.body;
     if (!pocEmail) return res.status(400).json({ error: 'Missing pocEmail' });
-    if (!contractText) return res.status(400).json({ error: 'Missing contractText' });
 
     const nameParts = (pocName || clientName || 'Client Signer').split(' ');
     const firstName = nameParts[0] || 'Client';
     const lastName = nameParts.slice(1).join(' ') || 'Signer';
 
-    // Pre-fill DJ rep info, signatures and dates
     const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-    
-    let filledContract = contractText;
-    
-    // Fill DJ rep name
-    filledContract = filledContract.replace(
-      'DJ Shark Attack LLC Representative: _______________',
-      'DJ Shark Attack LLC Representative: Daniel Moore'
-    );
-    
-    // Fill DJ rep signature
-    filledContract = filledContract.replace(
-      /DJ Shark Attack LLC Representative: Daniel Moore\nSignature: _+/,
-      'DJ Shark Attack LLC Representative: Daniel Moore\nSignature: /s/ Daniel Moore'
-    );
-    
-    // Fill ALL date lines with today's date
-    filledContract = filledContract.replace(/Date: _+/g, 'Date: ' + today);
-
-    const contractWithTags = filledContract;
-
-    const pdfBase64 = textToPdfBase64(contractWithTags);
+    const dep = fee ? '$' + (parseFloat(fee) * 0.5).toFixed(2) : '';
 
     const createBody = {
       name: 'DJ Shark Attack Contract - ' + clientName,
-      document: pdfBase64,
+      template_id: '7fdb041d-f7f0-4fd8-b0df-84632b22e551',
       recipients: [{
         id: 'temp_1',
         first_name: firstName,
@@ -120,14 +98,29 @@ app.post('/send-contract', async (req, res) => {
         email: pocEmail,
         role: 'signer'
       }],
+      prefilled_fields: [
+        { label: 'client_name', value: clientName || '' },
+        { label: 'agreement_date', value: agDate || today },
+        { label: 'performance_date', value: perfDate || '' },
+        { label: 'start_time', value: startTime || '' },
+        { label: 'end_time', value: endTime || '' },
+        { label: 'venue', value: venue || '' },
+        { label: 'total_fee', value: fee ? '$' + fee : '' },
+        { label: 'deposit', value: dep },
+        { label: 'services', value: services || '' },
+        { label: 'rep_name', value: 'Daniel Moore' },
+        { label: 'rep_signature', value: '/s/ Daniel Moore' },
+        { label: 'client_date', value: today },
+        { label: 'rep_date', value: today }
+      ],
       settings: {
         send_signing_email: true,
         send_finish_email: true,
-        allow_editing_before_sending: true
+        allow_editing_before_sending: false
       }
     };
 
-    if (emailMessage) createBody.description = emailMessage;
+    if (emailMessage) createBody.email_message = emailMessage;
 
     const createRes = await fetch('https://api.firma.dev/functions/v1/signing-request-api/signing-requests', {
       method: 'POST',
