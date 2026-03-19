@@ -88,31 +88,33 @@ app.post('/send-contract', async (req, res) => {
     const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     const dep = fee ? '$' + (parseFloat(fee) * 0.5).toFixed(2) : '';
 
+    // Build fully filled contract text
+    let filled = contractText;
+    filled = filled.replace('DJ Shark Attack LLC Representative: _______________', 'DJ Shark Attack LLC Representative: Daniel Moore');
+    filled = filled.replace(/DJ Shark Attack LLC Representative: Daniel Moore\nSignature: _+/, 'DJ Shark Attack LLC Representative: Daniel Moore\nSignature: /s/ Daniel Moore');
+    filled = filled.replace(/Date: _+/g, 'Date: ' + today);
+
+    const pdfBase64 = textToPdfBase64(filled);
+
     const createBody = {
       name: 'DJ Shark Attack Contract - ' + clientName,
-      template_id: '7fdb041d-f7f0-4fd8-b0df-84632b22e551',
+      document: pdfBase64,
       recipients: [{
+        id: 'temp_1',
         first_name: firstName,
         last_name: lastName,
         email: pocEmail,
-        designation: 'Signer',
-        order: 1
+        role: 'signer'
       }],
-      prefilled_fields: [
-        { variable_name: 'client_name', value: clientName || '' },
-        { variable_name: 'agreement_date', value: agDate || today },
-        { variable_name: 'performance_date', value: perfDate || '' },
-        { variable_name: 'start_time', value: startTime || '' },
-        { variable_name: 'end_time', value: endTime || '' },
-        { variable_name: 'venue', value: venue || '' },
-        { variable_name: 'total_fee', value: fee ? '$' + fee : '' },
-        { variable_name: 'deposit', value: dep },
-        { variable_name: 'services', value: services || '' },
-        { variable_name: 'rep_name', value: 'Daniel Moore' },
-        { variable_name: 'rep_signature', value: '/s/ Daniel Moore' },
-        { variable_name: 'client_date', value: today },
-        { variable_name: 'rep_date', value: today }
-      ],
+      fields: [{
+        recipient_id: 'temp_1',
+        type: 'signature',
+        page_number: 2,
+        x: 20.61,
+        y: 39.20,
+        width: 28.16,
+        height: 2.31
+      }],
       settings: {
         send_signing_email: true,
         send_finish_email: true,
