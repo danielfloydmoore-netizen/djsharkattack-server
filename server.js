@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -9,15 +8,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const FIRMA_KEY = 'firma_7568f96c93fb42f1811abc08153302456388faa366a5f44d';
 const MONDAY_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjYzNDI5OTgzNSwiYWFpIjoxMSwidWlkIjoyOTM2NzEyNiwiaWFkIjoiMjAyNi0wMy0xN1QxNzowOTo1Ny45NjRaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTE3Mjk2MzMsInJnbiI6InVzZTEifQ.oPYF0k3V2mlZ8MC7iVt2bh2kLkus8cFmfUSh33UnNvw';
-const YAHOO_EMAIL = 'djsharkattack@yahoo.com';
-const YAHOO_PASS = 'cihokezbcxhsvndl';
-
-const mailer = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  auth: { user: 'danielfloydmoore@gmail.com', pass: 'cwuozckdwvmeyvlz' }
-});
+const RESEND_KEY = 're_8JYnuAAm_HCbGN7ettZ2AjUAXNGMvBZdL';
 
 app.get('/', (req, res) => {
   res.json({ status: 'DJ Shark Attack server is running!' });
@@ -94,24 +85,29 @@ app.post('/send-contract', async (req, res) => {
     filled = filled.replace(/Date: _+/g, 'Date: ' + today);
 
     const pdfBase64 = textToPdfBase64(filled);
-    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
     console.log('Sending email to', pocEmail);
-    await Promise.race([
-      mailer.sendMail({
-        from: '"DJ Shark Attack LLC" <danielfloydmoore@gmail.com>',
-        to: pocEmail,
-        replyTo: 'djsharkattack@yahoo.com',
+    const emailRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + RESEND_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'DJ Shark Attack LLC <onboarding@resend.dev>',
+        to: [pocEmail],
+        reply_to: 'djsharkattack@yahoo.com',
         subject: `DJ Shark Attack Service Contract - ${clientName}`,
         text: emailMessage,
         attachments: [{
           filename: `DJ_Shark_Attack_Contract_${clientName.replace(/[^a-z0-9]/gi,'_')}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf'
+          content: pdfBase64
         }]
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Gmail timeout after 20s')), 20000))
-    ]);
+      })
+    });
+    const emailData = await emailRes.json();
+    console.log('Resend response:', JSON.stringify(emailData));
+    if (!emailRes.ok) throw new Error('Resend error: ' + JSON.stringify(emailData));
 
     console.log('Email sent to', pocEmail);
     res.json({ success: true });
