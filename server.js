@@ -1,19 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
- 
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
- 
+
 const FIRMA_KEY = 'firma_7568f96c93fb42f1811abc08153302456388faa366a5f44d';
-const MONDAY_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjYzNDI5OTgzNSwiYWFpIjoxMSwidWlkIjoyOTM2NzEyNiwiaWFkIjoiMjAyNi0wMy0xN1QxNzowOTo1Ny4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTE3Mjk2MzMsInJnbiI6InVzZTEifQ.LthbdrzQ5CHuGX6v_BH4QtcVKM4xayLqmC9TWL8MsSU';
+const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
 const RESEND_KEY = 're_8JYnuAAm_HCbGN7ettZ2AjUAXNGMvBZdL';
- 
+
 app.get('/', (req, res) => {
   res.json({ status: 'DJ Shark Attack server is running!' });
 });
- 
+
 function textToPdfBase64(text) {
   const lines = text.split('\n');
   const pageHeight = 792;
@@ -22,24 +22,24 @@ function textToPdfBase64(text) {
   const lineHeight = 13;
   const fontSize = 9;
   const linesPerPage = Math.floor((pageHeight - margin * 2) / lineHeight);
- 
+
   const pdfLines = [];
   for (const line of lines) {
     if (line.length === 0) { pdfLines.push(''); continue; }
     for (let i = 0; i < line.length; i += 95) pdfLines.push(line.slice(i, i + 95));
   }
- 
+
   const pages = [];
   for (let i = 0; i < pdfLines.length; i += linesPerPage) pages.push(pdfLines.slice(i, i + linesPerPage));
   if (pages.length === 0) pages.push(['']);
- 
+
   let objId = 1;
   const objs = {};
   const catalogId = objId++;
   const pagesId = objId++;
   objs[objId] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
   const fontId = objId++;
- 
+
   const pageIds = [];
   for (const pageLines of pages) {
     const esc = pageLines.map(l => l.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/\r/g,''));
@@ -51,10 +51,10 @@ function textToPdfBase64(text) {
     objs[objId] = `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${cid} 0 R /Resources << /Font << /F1 ${fontId} 0 R >> >> >>`;
     pageIds.push(objId++);
   }
- 
+
   objs[catalogId] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
   objs[pagesId] = `<< /Type /Pages /Kids [${pageIds.map(i=>`${i} 0 R`).join(' ')}] /Count ${pageIds.length} >>`;
- 
+
   const maxId = objId - 1;
   let pdf = '%PDF-1.4\n';
   const offsets = {};
@@ -68,24 +68,24 @@ function textToPdfBase64(text) {
   pdf += `trailer\n<< /Size ${maxId + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return Buffer.from(pdf).toString('base64');
 }
- 
+
 app.post('/send-contract', async (req, res) => {
   try {
     const { clientName, pocName, pocEmail, contractText, emailMessage, perfDate, agDate, startTime, endTime, venue, fee, services } = req.body;
     if (!pocEmail) return res.status(400).json({ error: 'Missing pocEmail' });
     if (!contractText) return res.status(400).json({ error: 'Missing contractText' });
- 
+
     const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     const dep = fee ? '$' + (parseFloat(fee) * 0.5).toFixed(2) : '';
- 
+
     // Pre-fill contract
     let filled = contractText;
     filled = filled.replace('DJ Shark Attack LLC Representative: _______________', 'DJ Shark Attack LLC Representative: Daniel Moore');
     filled = filled.replace(/DJ Shark Attack LLC Representative: Daniel Moore\nSignature: _+/, 'DJ Shark Attack LLC Representative: Daniel Moore\nSignature: /s/ Daniel Moore');
     filled = filled.replace(/Date: _+/g, 'Date: ' + today);
- 
+
     const pdfBase64 = textToPdfBase64(filled);
- 
+
     console.log('Sending email to', pocEmail);
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -108,27 +108,27 @@ app.post('/send-contract', async (req, res) => {
     const emailData = await emailRes.json();
     console.log('Resend response:', JSON.stringify(emailData));
     if (!emailRes.ok) throw new Error('Resend error: ' + JSON.stringify(emailData));
- 
+
     console.log('Email sent to', pocEmail);
     res.json({ success: true });
- 
+
   } catch (e) {
     console.error('send-contract error:', e);
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 app.post('/log-monday', async (req, res) => {
   try {
     const { boardId, itemName, eventDate, services, venue, contactInfo, phone, fee, deposit } = req.body;
- 
+
     const servicesMap = {
       'Ceremony and reception': ['Ceremony', 'Reception'],
       'Reception only': ['Reception'],
       'Hourly': ['Hourly']
     };
     const mondayServices = servicesMap[services] || [services];
- 
+
     const colObj = {};
     if (eventDate) colObj['date'] = { date: eventDate };
     if (mondayServices.length) colObj['dropdown'] = { labels: mondayServices };
@@ -145,10 +145,10 @@ app.post('/log-monday', async (req, res) => {
     colObj['status_2'] = { label: 'Done' };
     colObj['status6'] = { label: 'Not Received' };
     colObj['status_1'] = { label: 'Send' };
- 
+
     const colVals = JSON.stringify(colObj);
     console.log('Monday column values:', colVals);
- 
+
     const mutation = `mutation {
       create_item(
         board_id: ${boardId},
@@ -156,7 +156,7 @@ app.post('/log-monday', async (req, res) => {
         column_values: ${JSON.stringify(colVals)}
       ) { id }
     }`;
- 
+
     const monRes = await fetch('https://api.monday.com/v2', {
       method: 'POST',
       headers: {
@@ -166,10 +166,10 @@ app.post('/log-monday', async (req, res) => {
       },
       body: JSON.stringify({ query: mutation })
     });
- 
+
     const monData = await monRes.json();
     console.log('Monday response:', JSON.stringify(monData));
- 
+
     if (monData.data && monData.data.create_item) {
       res.json({ success: true, id: monData.data.create_item.id });
     } else {
@@ -180,6 +180,6 @@ app.post('/log-monday', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('DJ Shark Attack server running on port ' + PORT));
