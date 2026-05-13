@@ -161,9 +161,20 @@ app.post('/log-monday', async (req, res) => {
     const testData = await testRes.json();
     console.log('Auth test result:', JSON.stringify(testData));
 
+    // First get the first group_id from the board
+    const groupRes = await fetch('https://api.monday.com/v2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': MONDAY_TOKEN, 'API-Version': '2025-01' },
+      body: JSON.stringify({ query: `{ boards(ids: [${boardId}]) { groups { id title } } }` })
+    });
+    const groupData = await groupRes.json();
+    console.log('Groups:', JSON.stringify(groupData));
+    const groupId = groupData.data && groupData.data.boards[0] && groupData.data.boards[0].groups[0] ? groupData.data.boards[0].groups[0].id : null;
+
     const mutation = `mutation {
       create_item(
         board_id: ${boardId},
+        ${groupId ? `group_id: "${groupId}",` : ''}
         item_name: "${itemName.replace(/"/g,'').replace(/\n/g,' ').replace(/ - \d{2}\/\d{2}\/\d{4}/,'')}",
         column_values: ${JSON.stringify(colVals)}
       ) { id }
