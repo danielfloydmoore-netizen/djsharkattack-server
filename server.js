@@ -76,9 +76,7 @@ app.post('/send-contract', async (req, res) => {
     if (!contractText) return res.status(400).json({ error: 'Missing contractText' });
 
     const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-    const dep = fee ? '$' + (parseFloat(fee) * 0.5).toFixed(2) : '';
 
-    // Pre-fill contract
     let filled = contractText;
     filled = filled.replace('DJ Shark Attack LLC Representative: _______________', 'DJ Shark Attack LLC Representative: Daniel Moore');
     filled = filled.replace(/DJ Shark Attack LLC Representative: Daniel Moore\nSignature: _+/, 'DJ Shark Attack LLC Representative: Daniel Moore\nSignature: /s/ Daniel Moore');
@@ -148,6 +146,20 @@ app.post('/log-monday', async (req, res) => {
 
     const colVals = JSON.stringify(colObj);
     console.log('Monday column values:', colVals);
+    console.log('Token first 20 chars:', MONDAY_TOKEN ? MONDAY_TOKEN.substring(0, 20) : 'UNDEFINED');
+
+    // Test auth first
+    const testRes = await fetch('https://api.monday.com/v2', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': MONDAY_TOKEN,
+        'API-Version': '2025-01'
+      },
+      body: JSON.stringify({ query: '{ me { name email } }' })
+    });
+    const testData = await testRes.json();
+    console.log('Auth test result:', JSON.stringify(testData));
 
     const mutation = `mutation {
       create_item(
