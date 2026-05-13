@@ -162,7 +162,7 @@ app.post('/log-monday', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': MONDAY_TOKEN,
-        'API-Version': '2024-01'
+        'API-Version': '2025-01'
       },
       body: JSON.stringify({ query: mutation })
     });
