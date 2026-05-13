@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const FIRMA_KEY = 'firma_7568f96c93fb42f1811abc08153302456388faa366a5f44d';
-const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
+const MONDAY_TOKEN = process.env.MONDAY_TOKEN || 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjY1ODIyMzgwMCwiYWFpIjoxMSwidWlkIjoyOTM2NzEyNiwiaWFkIjoiMjAyNi0wNS0xM1QyMTo0NjoyNy4wNzFaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTE3Mjk2MzMsInJnbiI6InVzZTEifQ.FYUgsKQ209YFQ6kLrvft7T1lBxH2-51VPDCVg8c-Rwk';
 const RESEND_KEY = 're_8JYnuAAm_HCbGN7ettZ2AjUAXNGMvBZdL';
 
 app.get('/', (req, res) => {
